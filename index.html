@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VTC · Bon de Commande Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --bg: #060E1C; --surface: #0B1629; --card: rgba(12, 24, 46, 0.92);
+  --border: rgba(45, 75, 125, 0.4); --text: #DCE8FF;
+  --text-muted: #6E90BF; --accent: #2563EB;
+  --accent-light: #3B82F6; --success: #10B981; --r-lg: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); padding-bottom: 120px; }
+
+header { background: rgba(6,14,28,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: 20px; position: sticky; top: 0; z-index: 100; }
+.container { max-width: 850px; margin: 0 auto; padding: 20px; }
+
+.form-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 25px; margin-bottom: 25px; }
+.card-title { font-size: 0.9rem; font-weight: 700; color: var(--accent-light); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+.full { grid-column: span 2; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+input { background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; outline: none; transition: 0.2s; }
+input:focus { border-color: var(--accent-light); }
+
+.magic-box { background: rgba(37, 99, 235, 0.05); border: 2px dashed var(--accent); border-radius: 12px; padding: 15px; margin-top: 10px; }
+textarea { width: 100%; height: 80px; background: transparent; border: none; color: white; resize: none; outline: none; font-size: 0.9rem; }
+
+.btn { padding: 12px 25px; border-radius: 10px; font-weight: 700; cursor: pointer; border: none; transition: 0.3s; }
+.btn-save { background: var(--success); color: white; font-size: 0.75rem; padding: 6px 15px; }
+.btn-primary { background: var(--accent); color: white; width: 100%; }
+.btn-magic { background: var(--accent-light); color: white; width: 100%; margin-top: 10px; }
+
+#toast { position: fixed; top: 20px; right: 20px; background: var(--success); color: white; padding: 15px 25px; border-radius: 10px; display: none; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+@media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div id="toast">Message !</div>
+
+<header>
+    <div style="max-width: 850px; margin: 0 auto; display: flex; justify-content: space-between;">
+        <div style="font-weight: 800; letter-spacing: -1px;">VTC <span style="color:var(--accent-light)">PRO</span></div>
+        <div style="font-size: 0.7rem; opacity: 0.6;">DASHBOARD CHAUFFEUR</div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="form-card" style="border-left: 4px solid var(--success);">
+        <div class="card-title">
+            👤 MON PROFIL & VÉHICULE (SAUVEGARDÉ)
+            <button class="btn btn-save" onclick="saveDriver()">💾 ENREGISTRER MON PROFIL</button>
+        </div>
+        <div class="grid">
+            <div class="field"><label>Nom / Société</label><input type="text" id="dr-name"></div>
+            <div class="field"><label>Téléphone Porteur</label><input type="text" id="dr-phone"></div>
+            <div class="field"><label>SIRET</label><input type="text" id="dr-siret"></div>
+            <div class="field"><label>N° Licence VTC</label><input type="text" id="dr-vtc"></div>
+            <div class="field full"><label>Véhicule (Modèle, Marque, Plaque)</label><input type="text" id="dr-veh" placeholder="Ex: Peugeot 508 - AB-123-CD"></div>
+        </div>
+    </div>
+
+    <div class="form-card" style="border-color: var(--accent);">
+        <div class="card-title" style="color: var(--accent-light);">✨ IMPORTATION AUTO (COPIER/COLLER)</div>
+        <div class="magic-box">
+            <textarea id="magic-input" placeholder="Collez ici le message de la course..."></textarea>
+            <button class="btn btn-magic" onclick="extractData()">🚀 ANALYSER ET REMPLIR</button>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="card-title">🚗 DÉTAILS DE LA COURSE</div>
+        <div class="grid">
+            <div class="field"><label>Nom Client</label><input type="text" id="cl-name"></div>
+            <div class="field"><label>Téléphone Client</label><input type="text" id="cl-phone"></div>
+            <div class="field"><label>Date</label><input type="date" id="cr-date"></div>
+            <div class="field"><label>Heure</label><input type="time" id="cr-time"></div>
+            <div class="field full"><label>Prise en charge (Départ)</label><input type="text" id="cr-from"></div>
+            <div class="field full"><label>Destination (Arrivée)</label><input type="text" id="cr-to"></div>
+            <div class="field full"><label>Prix TTC (€)</label><input type="number" id="p-ttc" step="0.01"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top: 25px;" onclick="generatePDF()">📄 GÉNÉRER LE PDF SÉPARÉ</button>
+    </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// --- EXTRACTION INTELLIGENTE ---
+function extractData() {
+    const text = $("magic-input").value;
+    if (!text) return;
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l !== "");
+    lines.forEach(line => {
+        const phone = line.match(/(?:\+|00|0)[1-9][\d\s.-]{7,}/);
+        if (phone) $("cl-phone").value = phone[0].replace(/\s/g, '');
+        const price = line.match(/(\d{1,4}[.,]\d{2})/);
+        if (price) $("p-ttc").value = price[1].replace(',', '.');
+        if (/(aéroport|cdg|orly|gare|hotel|rue|av\.|bd\.)/i.test(line)) {
+            if (!$("cr-from").value) $("cr-from").value = line;
+            else $("cr-to").value = line;
+        }
+        if (!$("cl-name").value && line.length < 25 && !phone && !price) $("cl-name").value = line;
+    });
+    showToast("Extraction réussie ! ✅");
+}
+
+// --- PERSISTANCE ---
+function saveDriver() {
+    const data = {
+        name: $("dr-name").value, phone: $("dr-phone").value,
+        siret: $("dr-siret").value, vtc: $("dr-vtc").value, veh: $("dr-veh").value
+    };
+    localStorage.setItem('vtc_v47_driver', JSON.stringify(data));
+    showToast("Profil enregistré ! ✅");
+}
+
+function loadDriver() {
+    const saved = localStorage.getItem('vtc_v47_driver');
+    if (saved) {
+        const d = JSON.parse(saved);
+        $("dr-name").value = d.name || '';
+        $("dr-phone").value = d.phone || '';
+        $("dr-siret").value = d.siret || '';
+        $("dr-vtc").value = d.vtc || '';
+        $("dr-veh").value = d.veh || '';
+    }
+    $("cr-date").valueAsDate = new Date();
+}
+
+function showToast(m) {
+    const t = $("toast"); t.innerText = m; t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 3000);
+}
+
+// --- GÉNÉRATION DU PDF AVEC SÉPARATION ---
+async function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const dr = {
+        name: $("dr-name").value.toUpperCase() || "VOTRE SOCIÉTÉ",
+        siret: $("dr-siret").value || "-",
+        vtc: $("dr-vtc").value || "-",
+        veh: $("dr-veh").value || "-",
+        tel: $("dr-phone").value || "-"
+    };
+
+    // 1. BLOC CHAUFFEUR (En-tête)
+    doc.setFillColor(6, 14, 28);
+    doc.rect(0, 0, 210, 50, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.text(dr.name, 15, 20);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`SIRET : ${dr.siret}  |  Licence VTC : ${dr.vtc}`, 15, 28);
+    doc.text(`Véhicule : ${dr.veh}`, 15, 33);
+    doc.text(`Contact : ${dr.tel}`, 15, 38);
+
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text("BON DE COMMANDE T3P", 195, 20, { align: 'right' });
+    doc.text(`N° BDC-${Date.now().toString().slice(-6)}`, 195, 28, { align: 'right' });
+
+    // 2. BLOC CLIENT (Corps)
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(12);
+    doc.text("DÉTAILS DE LA PRESTATION CLIENT", 15, 65);
+
+    doc.autoTable({
+        startY: 70,
+        theme: 'grid',
+        head: [['Rubrique', 'Information']],
+        body: [
+            ['Passager', $("cl-name").value],
+            ['Téléphone', $("cl-phone").value],
+            ['Date & Heure', `${$("cr-date").value} à ${$("cr-time").value}`],
+            ['Lieu de Départ', $("cr-from").value],
+            ['Lieu d\'Arrivée', $("cr-to").value],
+            ['Tarif Convenu TTC', `${$("p-ttc").value} €`]
+        ],
+        headStyles: { fillColor: [37, 99, 235], fontStyle: 'bold' },
+        styles: { cellPadding: 5, fontSize: 10 }
+    });
+
+    // 3. BAS DE PAGE (Mentions légales)
+    const finalY = doc.lastAutoTable.finalY + 20;
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Article L.3122-9 du Code des transports :", 15, finalY);
+    doc.setFont(undefined, 'italic');
+    doc.text("Ce document atteste d'une réservation préalable obligatoire pour toute prestation de VTC.", 15, finalY + 5);
+    doc.text("Le prix est ferme, définitif et accepté par les deux parties au moment de la commande.", 15, finalY + 10);
+
+    doc.save(`VTC_Bon_${$("cl-name").value || 'Prestation'}.pdf`);
+}
+
+window.onload = loadDriver;
+</script>
+</body>
+</html>
